@@ -800,6 +800,19 @@ function __bobthefish_rvm_info -S -d 'Current Ruby information from RVM'
     end
 end
 
+function __bobthefish_asdf_plugin_version -S -d 'Guess version of an executable managed by asdf'
+    set -l asdf_current_plugin (asdf current $argv[1] 2>/dev/null)
+    or return
+
+    echo "$asdf_current_plugin" | read -l _asdf_plugin asdf_plugin_version asdf_provenance
+
+    # If asdf changes their ruby version provenance format, update this to match
+    [ (string trim -- "$asdf_provenance") = "$HOME/.tool-versions" ]
+    and return
+
+    echo $asdf_plugin_version
+end
+
 function __bobthefish_prompt_rubies -S -d 'Display current Ruby information'
     [ "$theme_display_ruby" = 'no' ]
     and return
@@ -823,17 +836,8 @@ function __bobthefish_prompt_rubies -S -d 'Display current Ruby information'
         and return
     else if type -q chruby # chruby is implemented as a function, so using type -q is intentional
         set ruby_version $RUBY_VERSION
-    else if command -q asdf
-        set -l asdf_current_ruby (asdf current ruby 2>/dev/null)
-        or return
-
-        echo "$asdf_current_ruby" | read -l _asdf_plugin asdf_ruby_version asdf_provenance
-
-        # If asdf changes their ruby version provenance format, update this to match
-        [ (string trim -- "$asdf_provenance") = "$HOME/.tool-versions" ]
-        and return
-
-        set ruby_version $asdf_ruby_version
+    else if type -fq asdf
+        set ruby_version (__bobthefish_asdf_plugin_version ruby)
     end
 
     [ -z "$ruby_version" ]
@@ -1005,20 +1009,40 @@ function __bobthefish_prompt_node -S -d 'Display current node version'
     set -l node_manager_dir
 
     if type -q nvm
+<<<<<<< HEAD
         set node_manager 'nvm'
         set node_manager_dir $NVM_DIR
     else if command -q fnm
         set node_manager 'fnm'
         set node_manager_dir $FNM_DIR
+=======
+      set node_manager 'nvm'
+      set node_manager_dir $NVM_DIR
+    else if type -fq fnm
+      set node_manager 'fnm'
+      set node_manager_dir $FNM_DIR
+    else if type -fq asdf
+      set node_manager 'asdf'
+      set node_manager_dir $ASDF_DIR
+>>>>>>> 4b1b028 (asdf generic support)
     end
 
     [ -n "$node_manager_dir" ]
     or return
 
-    set -l node_version ("$node_manager" current 2> /dev/null)
+    set -l node_version
 
-    [ -z $node_version -o "$node_version" = 'none' -o "$node_version" = 'system' ]
-    and return
+    if [ "$node_manager" = 'asdf' ]
+        set node_version (__bobthefish_asdf_plugin_version nodejs)
+
+        [ -z $node_version ]
+        and return
+    else
+        set node_version ("$node_manager" current 2> /dev/null)
+
+        [ -z $node_version -o "$node_version" = 'none' -o "$node_version" = 'system' ]
+        and return
+    end
 
     [ -n "$color_nvm" ]
     and set -x color_node $color_nvm
