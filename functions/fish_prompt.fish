@@ -813,6 +813,22 @@ function __bobthefish_asdf_plugin_version -S -d 'Guess version of an executable 
     echo $asdf_plugin_version
 end
 
+function __bobthefish_mise_plugin_version -S -d 'Guess version of an executable managed by mise'
+    set -l mise_version (mise current $argv[1] 2>/dev/null)
+    or return
+
+    # mise outputs just the version number, unlike asdf which outputs "tool version source"
+    # Only show if not from global config
+    set -l mise_source (mise ls --current $argv[1] 2>/dev/null | tail -n 1 | awk '{print $3}')
+    
+    # Don't show if it's from the global config (expand ~ to $HOME for comparison)
+    set -l global_config (string replace '~' "$HOME" "$mise_source")
+    [ "$global_config" = "$HOME/.config/mise/config.toml" ]
+    and return
+
+    echo $mise_version
+end
+
 function __bobthefish_prompt_rubies -S -d 'Display current Ruby information'
     [ "$theme_display_ruby" = 'no' ]
     and return
@@ -838,6 +854,8 @@ function __bobthefish_prompt_rubies -S -d 'Display current Ruby information'
         set ruby_version $RUBY_VERSION
     else if type -fq asdf
         set ruby_version (__bobthefish_asdf_plugin_version ruby)
+    else if type -fq mise
+        set ruby_version (__bobthefish_mise_plugin_version ruby)
     end
 
     [ -z "$ruby_version" ]
@@ -1009,13 +1027,6 @@ function __bobthefish_prompt_node -S -d 'Display current node version'
     set -l node_manager_dir
 
     if type -q nvm
-<<<<<<< HEAD
-        set node_manager 'nvm'
-        set node_manager_dir $NVM_DIR
-    else if command -q fnm
-        set node_manager 'fnm'
-        set node_manager_dir $FNM_DIR
-=======
       set node_manager 'nvm'
       set node_manager_dir $NVM_DIR
     else if type -fq fnm
@@ -1024,7 +1035,9 @@ function __bobthefish_prompt_node -S -d 'Display current node version'
     else if type -fq asdf
       set node_manager 'asdf'
       set node_manager_dir $ASDF_DIR
->>>>>>> 4b1b028 (asdf generic support)
+    else if type -fq mise
+      set node_manager 'mise'
+      set node_manager_dir ~/.config/mise/
     end
 
     [ -n "$node_manager_dir" ]
@@ -1034,6 +1047,11 @@ function __bobthefish_prompt_node -S -d 'Display current node version'
 
     if [ "$node_manager" = 'asdf' ]
         set node_version (__bobthefish_asdf_plugin_version nodejs)
+
+        [ -z $node_version ]
+        and return
+    else if [ "$node_manager" = 'mise' ]
+        set node_version (__bobthefish_mise_plugin_version nodejs)
 
         [ -z $node_version ]
         and return
